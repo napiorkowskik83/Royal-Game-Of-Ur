@@ -12,6 +12,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
 import java.util.*;
@@ -23,8 +24,8 @@ public class RoyalGameOfUr extends Application {
     private final Image gameBoard = new Image("resources/the-royal-game-of-ur-board-3d-effect.png");
     Image greenX = new Image("resources/greenX.png");
     private List<ImageView> greenXViews = new ArrayList();
-
     private List<Button> greenXButtons = new ArrayList();
+    private List<String> logs = new ArrayList();
     private final Image dice00 = new Image("resources/dice00.png");
     private final Image dice01 = new Image("resources/dice01.png");
     private final Image dice02 = new Image("resources/dice02.png");
@@ -34,13 +35,18 @@ public class RoyalGameOfUr extends Application {
     private final Image[] dices = {dice00, dice01, dice02, dice10, dice11, dice12};
     private final Image blackChip = new Image("resources/bChipSmall.png");
     private final Image whiteChip = new Image("resources/wChipSmall.png");
+    private final Image directions = new Image("resources/directions.png");
     Location tempLocation;
     private final List<ImageView> diceViews = new ArrayList();
     private List<ImageView> whiteChipViews = new ArrayList();
     private List<ImageView> blackChipViews = new ArrayList();
     Button rollButton = new Button("Rzut kośćmi");
     private int rollResult;
-    private Label instructionLabel = new Label("Witamy w królewskiej grze z Ur! Rzuć kośćmi aby rozpocząć rozgrywkę.");
+    private Label instructionLabel = new Label("Rzuć kośćmi aby rozpocząć swoją turę.");
+    private final Label logHeader = new Label();
+    private final Label log = new Label();
+    private final VBox logBox = new VBox();
+    String logText;
     private List<Location> whiteStackLocations = new ArrayList();
     private List<Location> blackStackLocations = new ArrayList();
     private List<Location> whiteTrackLocations = new ArrayList();
@@ -55,10 +61,10 @@ public class RoyalGameOfUr extends Application {
     private HashMap<Chip, Location> possibleMoves = new HashMap();
     boolean skipComputerMove;
     boolean skipPlayersMove;
+    boolean computerFirst;
     Location checkedLocation;
-
     private FlowPane dicesPane = new FlowPane(Orientation.HORIZONTAL, 10, 0);
-    GridPane grid = new GridPane();
+    GridPane gameGrid = new GridPane();
 
     public static void main(String[] args) {
         launch(args);
@@ -68,14 +74,82 @@ public class RoyalGameOfUr extends Application {
     public void start(Stage primaryStage) throws Exception {
         BackgroundSize backgroundSize = new BackgroundSize(100, 100, true, true, true, false);
         BackgroundImage backgroundImage = new BackgroundImage(imageBack, BackgroundRepeat.REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
-        Background background = new Background(backgroundImage);
+        Background gameBackground = new Background(backgroundImage);
 
-        grid.setAlignment(Pos.TOP_LEFT);
-        grid.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
-        grid.setHgap(10);
-        grid.setVgap(10);
+
+        Scene startScene = setUpStartScene(primaryStage, gameBackground);
+
+        primaryStage.setTitle("Royal Game Of Ur");
+        primaryStage.setScene(startScene);
+        primaryStage.show();
+    }
+
+    public Scene setUpStartScene(Stage primaryStage, Background gameBackground) {
+        VBox startBox = new VBox();
+        startBox.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
+        startBox.setBackground(Background.EMPTY);
+        startBox.setSpacing(10);
+
+        Label text1 = new Label("Witamy w Królewskiej Grze z Ur!");
+        //text1.setWrapText(true);
+        text1.setFont(Font.font("Cambria", FontWeight.NORMAL, 22));
+        text1.setTextFill(Color.BLACK);
+
+        Label text2 = new Label("Królewska gra z Ur jest rozgrywana przy użyciu dwóch zestawów po siedem pionków każdy. Pionki w jednym z zestawów są białe z ciemnymi kropkami, w drugim zestawie znajdują się natomiast czarne pionki z jasnymi kropkami. \n" +
+                "Plansza składa się z trzech rzędów kwadratowych pól. Dwa zewnętrzne, niepełne rzędy (dolny i górny) są identyczne i składają się z sześciu pól. Pola te należą do pól własnych poszczególnych graczy. Rząd środkowy składa się z ośmiu pól, na których mogą lądować pionki obydwu z graczy. \n" +
+                "Celem gry jest przejście przez planszę (i zejście z niej) wszystkimi siedmioma pionkami przed przeciwnikiem. Kierunki poruszania pionków z zestawu czarnego oraz białego zaznaczone są odpowiadającym im kolorem na poniższej grafice.");
+        text2.setWrapText(true);
+        text2.setFont(Font.font("Cambria", FontWeight.NORMAL, 18));
+        text2.setTextFill(Color.BLACK);
+
+        Label text3 = new Label("Gracz/komputer zaczyna turę od rzutu kośćmi i o wylosowaną liczbę pól może przesunąć dowolny ze swoich pionków na planszy lub spoza planszy, jeśli nadal ma pionki, które nie weszły do gry.\n" +
+                "Kiedy pionek ląduje na którejkolwiek ze znajdujących się na jego torze trzech rozet, gracz otrzymuje dodatkowy ruch. \n" +
+                "Kiedy pionek znajduje się na jednym z własnych pól gracza jest bezpieczny (nie ma możliwości jego strącenia). Natomiast kiedy znajduje się na jednym z pól środkowego rzędu planszy, pionki przeciwnika mogą go strącić, lądując na tym samym polu. Strącony pionek zostaje zdjęty z planszy i musi ponownie rozpocząć „wyścig” od początku. \n" +
+                "Gracz nie musi strącić pionka przeciwnika za każdym razem, kiedy ma taką możliwość. \n" +
+                "Gracze są zobowiązani do przesunięcia któregoś z pionków, kiedy tylko jest to możliwe (nawet jeśli jest to dla nich niekorzystne)\n" +
+                "Jeśli pionek znajduje się w środkowym rzędzie na polu z rozetą, nie można go strącić. \n" +
+                "Na jednym polu nigdy nie może znajdować się więcej niż jeden pionek. Gracz nie może zatem przesunąć pionka na pole które jest zajmowane przez jego inny pionek lub pionek przeciwnika jeśli jest to pole z rozetą.\n" +
+                "Aby zejść pionkiem z planszy, gracz musi rzucić dokładnie tyle pól, ile pozostało do końca pola plus jeden. Jeśli gracz rzuci liczbę wyższą lub niższą od tej liczby, nie może usunąć pionka z planszy.");
+        text3.setWrapText(true);
+        text3.setFont(Font.font("Cambria", FontWeight.NORMAL, 18));
+        text3.setTextFill(Color.BLACK);
+
+        Label text4 = new Label("Jeżeli jesteś gotowy wybierz kto ma rozpocząć rozgrywkę:");
+        text4.setWrapText(true);
+        text4.setFont(Font.font("Cambria", FontWeight.BOLD, 18));
+        text4.setTextFill(Color.BLACK);
+
+        Button playerButton = new Button("Gracz");
+        playerButton.setOnAction((e) -> {
+            setUpAndDisplayGameScene(primaryStage, gameBackground);
+        });
+
+
+        Button computerButton = new Button("Komputer");
+        computerButton.setOnAction((e) -> {
+            computerFirst = true;
+            setUpAndDisplayGameScene(primaryStage, gameBackground);
+            computerMove();
+        });
+
+        HBox buttonBox = new HBox();
+        buttonBox.setSpacing(20);
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.getChildren().addAll(playerButton, computerButton);
+
+
+        startBox.getChildren().addAll(text1, text2, new ImageView(directions), text3, text4, buttonBox);
+        startBox.setAlignment(Pos.TOP_CENTER);
+        return new Scene(startBox, 1163, 774, Color.BEIGE);
+    }
+
+    public void setUpAndDisplayGameScene(Stage primaryStage, Background background) {
+        gameGrid.setAlignment(Pos.TOP_LEFT);
+        gameGrid.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
+        gameGrid.setHgap(10);
+        gameGrid.setVgap(10);
         //grid.setGridLinesVisible(true);
-        grid.setBackground(background);
+        gameGrid.setBackground(background);
         ImageView boardView = new ImageView(gameBoard);
 
         createGreenXButtonList();
@@ -85,9 +159,20 @@ public class RoyalGameOfUr extends Application {
 
         rollButton.setOnAction((e) -> {
             rollResult = rollTheDices();
+            updateLogByPlayerMove();
             System.out.println("Player roll: " + rollResult);
             nextTurn();
         });
+
+        logHeader.setFont(new Font("Cambria", 18));
+        logHeader.setTextFill(Color.WHITESMOKE);
+        logHeader.setText("Ostatnie 5 rzutów:");
+
+        log.setFont(new Font("Cambria", 16));
+        log.setTextFill(Color.WHITESMOKE);
+
+        logBox.getChildren().addAll(logHeader, log);
+        logBox.setSpacing(5);
 
         instructionLabel.setFont(new Font("Arial", 34));
         instructionLabel.setTextFill(Color.BEIGE);
@@ -95,15 +180,14 @@ public class RoyalGameOfUr extends Application {
         instructionLabel.setWrapText(true);
 
 
-        grid.add(boardView, 15, 15, 80, 31);
-        grid.add(dicesPane, 60, 58, 40, 30);
-        grid.add(rollButton, 68, 52, 10, 5);
-        grid.add(instructionLabel, 28, 55, 60, 30);
-        Scene scene = new Scene(grid, 1163, 774, Color.BLACK);
+        gameGrid.add(boardView, 15, 15, 80, 31);
+        gameGrid.add(dicesPane, 64, 55, 40, 30);
+        gameGrid.add(rollButton, 72, 49, 10, 5);
+        gameGrid.add(instructionLabel, 28, 55, 60, 30);
+        gameGrid.add(logBox, 2, 62, 30, 30);
+        Scene gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
 
-        primaryStage.setTitle("Royal Game Of Ur");
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        primaryStage.setScene(gameScene);
     }
 
 
@@ -157,15 +241,15 @@ public class RoyalGameOfUr extends Application {
 
     public void locateChips() {
         for (int i = 0; i < 7; i++) {
-            grid.add(whiteChips.get(i).getLook(), whiteChips.get(i).getLocation().getX(),
+            gameGrid.add(whiteChips.get(i).getLook(), whiteChips.get(i).getLocation().getX(),
                     whiteChips.get(i).getLocation().getY(), 10, 10);
-            grid.add(blackChips.get(i).getLook(), blackChips.get(i).getLocation().getX(),
+            gameGrid.add(blackChips.get(i).getLook(), blackChips.get(i).getLocation().getX(),
                     blackChips.get(i).getLocation().getY(), 10, 10);
         }
 
     }
 
-    public void resetChipsLocations(){
+    public void resetChipsLocations() {
         for (int i = 0; i < whiteChips.size(); i++) {
             relocateChip(whiteChips.get(i), whiteStackLocations.get(i));
             relocateChip(blackChips.get(i), blackStackLocations.get(i));
@@ -192,31 +276,31 @@ public class RoyalGameOfUr extends Application {
     }
 
     public void relocateChip(Chip chip, Location location) {
-        grid.getChildren().remove(chip.getLook());
+        gameGrid.getChildren().remove(chip.getLook());
         chip.setLocation(location);
-        grid.add(chip.getLook(), chip.getLocation().getX(), chip.getLocation().getY(), 10, 10);
+        gameGrid.add(chip.getLook(), chip.getLocation().getX(), chip.getLocation().getY(), 10, 10);
     }
 
     public void locateButton(Button button, Location location) {
-        grid.add(button, location.getX(), location.getY(), 10, 10);
+        gameGrid.add(button, location.getX(), location.getY(), 10, 10);
     }
 
     public void nextTurn() {
         rollButton.setDisable(true);
-        skipComputerMove=false;
-        skipPlayersMove=false;
-        if(rollResult!=0){
+        skipComputerMove = false;
+        skipPlayersMove = false;
+        if (rollResult != 0) {
             startWithPlayerMove(rollResult);
-        }else{
+        } else {
             computerMove();
         }
     }
 
     public void startWithPlayerMove(int rollResult) {
         determinePossibleMoves(rollResult);
-        if(possibleMoves.size()>0){
+        if (possibleMoves.size() > 0) {
             chooseMove();
-        }else{
+        } else {
             computerMove();
         }
     }
@@ -240,7 +324,6 @@ public class RoyalGameOfUr extends Application {
                 possibleMoves.put(chipsOnStack.get(chipsOnStack.size() - 1), checkedLocation);
             }
         }
-        System.out.println(chipsOnStack.size() + "" + chipsOnTrack.size() + "" + chipsOff.size());
     }
 
     public void groupUpBChips() {
@@ -267,25 +350,33 @@ public class RoyalGameOfUr extends Application {
                 deleteAllGreenButtons(possibleMoves.size());
                 relocateChip(possibleMove.getKey(), possibleMove.getValue());
                 groupUpBChips();
-                System.out.println(chipsOnStack.size() + "" + chipsOnTrack.size() + "" + chipsOff.size());
                 skipComputerMove = blackTrackLocations.get(3).equals(possibleMove.getValue())
                         || blackTrackLocations.get(7).equals(possibleMove.getValue())
                         || blackTrackLocations.get(13).equals(possibleMove.getValue());
-                if(chipsOff.size()<blackChips.size()){
-                    instructionLabel.setText("Rzuć kośćmi");
-                }else{
-                    instructionLabel.setText("BRAWO! Wygrałeś! Rzuć kośćmi aby rozpocząć nową partię");
-                    resetChipsLocations();
-                    skipComputerMove =true;
-                }
-                for(Chip chip: whiteChips){
-                    if(possibleMove.getValue().equals(chip.getLocation())){
+
+                for (Chip chip : whiteChips) {
+                    if (possibleMove.getValue().equals(chip.getLocation())) {
                         removeWhiteChip(chip);
                     }
                 }
-                if (!skipComputerMove){
+
+                if (chipsOff.size() < blackChips.size()) {
+                    instructionLabel.setText("Rzuć kośćmi");
+                } else {
+                    instructionLabel.setText("BRAWO! Wygrałeś! Rzuć kośćmi aby rozpocząć nową partię");
+                    logs.clear();
+                    resetChipsLocations();
+                    if (computerFirst){
+                        computerMove();
+                        instructionLabel.setText("BRAWO! Wygrałeś! Komputer wykonał pierwszy ruch w nowej partii" +
+                                " Rzuć kośćmi aby wykonać swój ruch");
+                    }
+                    skipComputerMove = true;
+                }
+
+                if (!skipComputerMove) {
                     computerMove();
-                }else{
+                } else {
                     rollButton.setDisable(false);
                 }
             });
@@ -295,7 +386,7 @@ public class RoyalGameOfUr extends Application {
 
     public void deleteAllGreenButtons(int n) {
         for (int i = 0; i < n; i++) {
-            grid.getChildren().remove(greenXButtons.get(i));
+            gameGrid.getChildren().remove(greenXButtons.get(i));
         }
     }
 
@@ -315,28 +406,34 @@ public class RoyalGameOfUr extends Application {
         return true;
     }
 
-    public void removeWhiteChip(Chip chip){
-        for(Location location: whiteStackLocations){
-            if (isWLocationAvailable(location)){
+    public void removeWhiteChip(Chip chip) {
+        for (Location location : whiteStackLocations) {
+            if (isWLocationAvailable(location)) {
                 relocateChip(chip, location);
                 break;
             }
         }
-
     }
 
     public void computerMove() {
         rollResult = rollTheDices();
         System.out.println("Computer roll: " + rollResult);
+        updateLogByComputerMove();
         if (rollResult != 0) {
+            instructionLabel.setText("Komputer wykonuje ruch");
+//            try{
+//                Thread.sleep(3000);
+//            }catch(Exception ex){
+//            }
             makeComputerMove(rollResult);
-        }else{
+        } else {
             rollButton.setDisable(false);
         }
     }
+
     public void makeComputerMove(int rollResult) {
         determinePossibleComputerMoves(rollResult);
-        if(!skipComputerMove){
+        if (!skipComputerMove) {
             chooseComputerMove();
         }
     }
@@ -360,8 +457,8 @@ public class RoyalGameOfUr extends Application {
                 possibleMoves.put(chipsOnStack.get(chipsOnStack.size() - 1), checkedLocation);
             }
         }
-        if(possibleMoves.size()==0){
-            skipComputerMove=true;
+        if (possibleMoves.size() == 0) {
+            skipComputerMove = true;
             rollButton.setDisable(false);
         }
     }
@@ -391,21 +488,27 @@ public class RoyalGameOfUr extends Application {
                 skipPlayersMove = whiteTrackLocations.get(3).equals(possibleMove.getValue())
                         || whiteTrackLocations.get(7).equals(possibleMove.getValue())
                         || whiteTrackLocations.get(13).equals(possibleMove.getValue());
-                for(Chip chip: blackChips){
-                    if(possibleMove.getValue().equals(chip.getLocation())){
+                for (Chip chip : blackChips) {
+                    if (possibleMove.getValue().equals(chip.getLocation())) {
                         removeBlackChip(chip);
                     }
                 }
-                if(chipsOff.size()<whiteChips.size()){
+                if (chipsOff.size() < whiteChips.size()) {
                     instructionLabel.setText("Rzuć kośćmi");
-                }else{
+                } else {
                     instructionLabel.setText("Niestety przegrałeś. Rzuć kośćmi aby rozpocząć nową partię");
+                    logs.clear();
                     resetChipsLocations();
+                    if (computerFirst){
+                        computerMove();
+                        instructionLabel.setText("Niestety przegrałeś. Komputer wykonał pierwszy ruch w nowej partii" +
+                                " Rzuć kośćmi aby wykonać swój ruch");
+                    }
                 }
             }
             c++;
         }
-        if(skipPlayersMove){
+        if (skipPlayersMove) {
             computerMove();
         }
         rollButton.setDisable(false);
@@ -426,9 +529,10 @@ public class RoyalGameOfUr extends Application {
         }
         return true;
     }
-    public void removeBlackChip(Chip chip){
-        for(Location location: blackStackLocations){
-            if (isBLocationAvailable(location)){
+
+    public void removeBlackChip(Chip chip) {
+        for (Location location : blackStackLocations) {
+            if (isBLocationAvailable(location)) {
                 relocateChip(chip, location);
                 break;
             }
@@ -436,4 +540,33 @@ public class RoyalGameOfUr extends Application {
         }
 
     }
+
+    public void updateLogByPlayerMove() {
+        if (logs.size() > 4) {
+            logs.remove(0);
+            logs.add("Gracz wyrzucił " + rollResult + "\n");
+        } else {
+            logs.add("Gracz wyrzucił " + rollResult + "\n");
+        }
+        logText = "";
+        for (String text : logs) {
+            logText += text;
+        }
+        log.setText(logText);
+    }
+
+    public void updateLogByComputerMove() {
+        if (logs.size() > 4) {
+            logs.remove(0);
+            logs.add("Komputer wyrzucił " + rollResult + "\n");
+        } else {
+            logs.add("Komputer wyrzucił " + rollResult + "\n");
+        }
+        logText = "";
+        for (String text : logs) {
+            logText += text;
+        }
+        log.setText(logText);
+    }
+
 }
