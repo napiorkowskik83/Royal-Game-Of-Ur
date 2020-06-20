@@ -5,8 +5,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
@@ -15,6 +14,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
+import java.io.*;
 import java.util.*;
 
 public class RoyalGameOfUr extends Application {
@@ -22,10 +22,10 @@ public class RoyalGameOfUr extends Application {
     Random gen = new Random();
     private final Image imageBack = new Image("resources/leather.jpg");
     private final Image gameBoard = new Image("resources/the-royal-game-of-ur-board-3d-effect.png");
-    Image greenX = new Image("resources/greenX.png");
-    private List<ImageView> greenXViews = new ArrayList();
-    private List<Button> greenXButtons = new ArrayList();
-    private List<String> logs = new ArrayList();
+    private final Image greenX = new Image("resources/greenX.png");
+    private final List<ImageView> greenXViews = new ArrayList();
+    private final ArrayList<Button> greenXButtons = new ArrayList();
+    private final ArrayList<String> logs = new ArrayList();
     private final Image dice00 = new Image("resources/dice00.png");
     private final Image dice01 = new Image("resources/dice01.png");
     private final Image dice02 = new Image("resources/dice02.png");
@@ -36,35 +36,63 @@ public class RoyalGameOfUr extends Application {
     private final Image blackChip = new Image("resources/bChipSmall.png");
     private final Image whiteChip = new Image("resources/wChipSmall.png");
     private final Image directions = new Image("resources/directions.png");
-    Location tempLocation;
-    private final List<ImageView> diceViews = new ArrayList();
-    private List<ImageView> whiteChipViews = new ArrayList();
-    private List<ImageView> blackChipViews = new ArrayList();
+    private final BackgroundSize backgroundSize = new BackgroundSize(100, 100, true, true, true, false);
+    private final BackgroundImage backgroundImage = new BackgroundImage(imageBack, BackgroundRepeat.REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
+    private final Background gameBackground = new Background(backgroundImage);
+    private final VBox startBox = new VBox();
+    private Scene startScene;
+    private Scene gameScene;
+    private Location tempLocation;
+    private final ArrayList<ImageView> whiteChipViews = new ArrayList();
+    private final ArrayList<ImageView> blackChipViews = new ArrayList();
     Button rollButton = new Button("Rzut kośćmi");
     private int rollResult;
-    private Label instructionLabel = new Label("Rzuć kośćmi aby rozpocząć swoją turę.");
+    private final Label instructionLabel = new Label("Rzuć kośćmi aby rozpocząć swoją turę.");
     private final Label logHeader = new Label();
     private final Label log = new Label();
     private final VBox logBox = new VBox();
+    private final Label resultsHeader = new Label("Dotychczasowe zwycięstwa");
+    private final Label resultsLabel = new Label();
+    private final VBox resultsBox = new VBox();
     String logText;
-    private List<Location> whiteStackLocations = new ArrayList();
-    private List<Location> blackStackLocations = new ArrayList();
-    private List<Location> whiteTrackLocations = new ArrayList();
-    private List<Location> blackTrackLocations = new ArrayList();
-    private List<Location> whiteOffLocations = new ArrayList();
-    private List<Location> blackOffLocations = new ArrayList();
-    private List<Chip> whiteChips = new ArrayList();
-    private List<Chip> blackChips = new ArrayList();
-    private List<Chip> chipsOnStack = new ArrayList();
-    private List<Chip> chipsOnTrack = new ArrayList();
-    private List<Chip> chipsOff = new ArrayList();
+    private final ArrayList<Location> whiteStackLocations = new ArrayList();
+    private final ArrayList<Location> blackStackLocations = new ArrayList();
+    private final ArrayList<Location> whiteTrackLocations = new ArrayList();
+    private final ArrayList<Location> blackTrackLocations = new ArrayList();
+    private final ArrayList<Location> whiteOffLocations = new ArrayList();
+    private final ArrayList<Location> blackOffLocations = new ArrayList();
+    private final ArrayList<Chip> whiteChips = new ArrayList();
+    private final ArrayList<Chip> blackChips = new ArrayList();
+    private final ArrayList<Chip> chipsOnStack = new ArrayList();
+    private final ArrayList<Chip> chipsOnTrack = new ArrayList();
+    private final ArrayList<Chip> chipsOff = new ArrayList();
     private HashMap<Chip, Location> possibleMoves = new HashMap();
-    boolean skipComputerMove;
-    boolean skipPlayersMove;
-    boolean computerFirst;
-    Location checkedLocation;
-    private FlowPane dicesPane = new FlowPane(Orientation.HORIZONTAL, 10, 0);
-    GridPane gameGrid = new GridPane();
+    private HashMap<Chip, Location> selectedPossibleMoves = new HashMap();
+    private boolean skipComputerMove;
+    private boolean skipPlayersMove;
+    private boolean computerFirst;
+    private Location checkedLocation;
+    private int computerAILevel = 1;
+    private ComboBox<String> aILevels = new ComboBox<>();
+    private ComboBox<String> playerNameBox = new ComboBox<>();
+    private String playerName = "nazwa gracza";
+    private Integer playerWins = 0;
+    private Integer computerWins = 0;
+    private final FlowPane dicesPane = new FlowPane(Orientation.HORIZONTAL, 10, 0);
+    private final GridPane gameGrid = new GridPane();
+    private final MenuBar menuBar = new MenuBar();
+    private final Menu menu = new Menu("Menu");
+    private final MenuItem loadGame = new MenuItem("Wczytaj ostatnią grę");
+    private final MenuItem saveGame = new MenuItem("Zapisz grę");
+    private final MenuItem restartGame = new MenuItem("Zrestartuj grę");
+    private final MenuItem clearPlayerResults = new MenuItem("Wyczyść swoje wyniki");
+    private final MenuItem exitGame = new MenuItem("Zakończ grę");
+    private HashMap<String, int[]> playersRanks = new HashMap<>();
+    private HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<String, ArrayList<Location>>();
+    private ArrayList<Location> savedChipsLocations = new ArrayList<Location>();
+    private File savedPlayerRanks = new File("rank.list");
+    private File savedGames = new File("saved.games");
+
 
     public static void main(String[] args) {
         launch(args);
@@ -72,23 +100,34 @@ public class RoyalGameOfUr extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        BackgroundSize backgroundSize = new BackgroundSize(100, 100, true, true, true, false);
-        BackgroundImage backgroundImage = new BackgroundImage(imageBack, BackgroundRepeat.REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
-        Background gameBackground = new Background(backgroundImage);
 
-
-        Scene startScene = setUpStartScene(primaryStage, gameBackground);
+        loadPlayersRanks();
+        setUpGameScene(primaryStage, gameBackground);
+        setUpStartScene(primaryStage, gameBackground);
 
         primaryStage.setTitle("Royal Game Of Ur");
         primaryStage.setScene(startScene);
         primaryStage.show();
     }
 
-    public Scene setUpStartScene(Stage primaryStage, Background gameBackground) {
-        VBox startBox = new VBox();
+
+    public void loadPlayersRanks() {
+        try {
+            ObjectInputStream ois = new ObjectInputStream(new FileInputStream(savedPlayerRanks));
+            Object readObject = ois.readObject();
+            if (readObject instanceof HashMap) {
+                playersRanks = (HashMap) readObject;
+            }
+            ois.close();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    public void setUpStartScene(Stage primaryStage, Background gameBackground) {
         startBox.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
         startBox.setBackground(Background.EMPTY);
-        startBox.setSpacing(10);
+        startBox.setSpacing(18);
 
         Label text1 = new Label("Witamy w Królewskiej Grze z Ur!");
         //text1.setWrapText(true);
@@ -114,41 +153,85 @@ public class RoyalGameOfUr extends Application {
         text3.setFont(Font.font("Cambria", FontWeight.NORMAL, 18));
         text3.setTextFill(Color.BLACK);
 
-        Label text4 = new Label("Jeżeli jesteś gotowy wybierz kto ma rozpocząć rozgrywkę:");
+        Label text4 = new Label("Jeżeli jesteś gotowy wprowadź nazwę gracza (lub wybierz jedną z wcześniej używnych)," +
+                " wybierz poziom chytrości komputera oraz naciśnij któryś z przycisków 'Komputer' / 'Gracz' określający kto ma rozpocząć pierwszą rozgrywkę:");
         text4.setWrapText(true);
         text4.setFont(Font.font("Cambria", FontWeight.BOLD, 18));
         text4.setTextFill(Color.BLACK);
 
+        aILevels.getItems().addAll("nierozgarnięty", "rozsądny", "całkiem bystry");
+        aILevels.setPromptText("poziom komputera");
+        aILevels.setPrefSize(180, 30);
+
+        playerNameBox.setValue("nazwa gracza");
+        for (Map.Entry<String, int[]> rank : playersRanks.entrySet()) {
+            playerNameBox.getItems().add(rank.getKey());
+        }
+
+        playerNameBox.setEditable(true);
+        aILevels.setPrefSize(180, 30);
+
         Button playerButton = new Button("Gracz");
         playerButton.setOnAction((e) -> {
-            setUpAndDisplayGameScene(primaryStage, gameBackground);
+            updateSettingsAccordingToPlayerInput();
+            primaryStage.setScene(gameScene);
         });
 
 
         Button computerButton = new Button("Komputer");
         computerButton.setOnAction((e) -> {
             computerFirst = true;
-            setUpAndDisplayGameScene(primaryStage, gameBackground);
+            updateSettingsAccordingToPlayerInput();
+            primaryStage.setScene(gameScene);
             computerMove();
         });
 
-        HBox buttonBox = new HBox();
-        buttonBox.setSpacing(20);
-        buttonBox.setAlignment(Pos.CENTER);
-        buttonBox.getChildren().addAll(playerButton, computerButton);
+        HBox lowBox = new HBox();
+        lowBox.setSpacing(20);
+        lowBox.setAlignment(Pos.CENTER);
+        lowBox.getChildren().addAll(playerNameBox, aILevels, computerButton, playerButton);
 
 
-        startBox.getChildren().addAll(text1, text2, new ImageView(directions), text3, text4, buttonBox);
+        startBox.getChildren().addAll(text1, text2, new ImageView(directions), text3, text4, lowBox);
         startBox.setAlignment(Pos.TOP_CENTER);
-        return new Scene(startBox, 1163, 774, Color.BEIGE);
+        startScene = new Scene(startBox, 1163, 774, Color.BEIGE);
     }
 
-    public void setUpAndDisplayGameScene(Stage primaryStage, Background background) {
+    public void updateSettingsAccordingToPlayerInput() {
+        playerName = playerNameBox.getValue();
+        updatePlayerAndComputerWins();
+        setUpComputerAILevel();
+        resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+        log.setText("");
+        if (!savedGamesMap.containsKey(playerName)) {
+            loadGame.setDisable(true);
+        }
+    }
+
+    public void updatePlayerAndComputerWins() {
+        if (playersRanks.containsKey(playerName)) {
+            playerWins = playersRanks.get(playerName)[0];
+            computerWins = playersRanks.get(playerName)[1];
+        }
+    }
+
+    public void setUpComputerAILevel() {
+        if ("nierozgarnięty".equals(aILevels.getValue())) {
+            computerAILevel = 1;
+        } else if ("rozsądny".equals(aILevels.getValue())) {
+            computerAILevel = 2;
+        } else if ("całkiem bystry".equals(aILevels.getValue())) {
+            computerAILevel = 3;
+        } else {
+            computerAILevel = 2;
+        }
+    }
+
+    public void setUpGameScene(Stage primaryStage, Background background) {
         gameGrid.setAlignment(Pos.TOP_LEFT);
-        gameGrid.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
         gameGrid.setHgap(10);
         gameGrid.setVgap(10);
-        //grid.setGridLinesVisible(true);
+        //gameGrid.setGridLinesVisible(true);
         gameGrid.setBackground(background);
         ImageView boardView = new ImageView(gameBoard);
 
@@ -164,52 +247,148 @@ public class RoyalGameOfUr extends Application {
             nextTurn();
         });
 
-        logHeader.setFont(new Font("Cambria", 18));
-        logHeader.setTextFill(Color.WHITESMOKE);
+        logHeader.setFont(new Font("Segoe UI Black", 18));
+        logHeader.setTextFill(Color.BEIGE);
         logHeader.setText("Ostatnie 5 rzutów:");
 
-        log.setFont(new Font("Cambria", 16));
-        log.setTextFill(Color.WHITESMOKE);
+        log.setFont(new Font("Segoe UI Black", 16));
+        log.setTextFill(Color.BEIGE);
 
         logBox.getChildren().addAll(logHeader, log);
         logBox.setSpacing(5);
 
-        instructionLabel.setFont(new Font("Arial", 34));
+        instructionLabel.setFont(new Font("Cambria", 36));
         instructionLabel.setTextFill(Color.BEIGE);
         instructionLabel.setPrefWidth(600);
         instructionLabel.setWrapText(true);
+        instructionLabel.setAlignment(Pos.BOTTOM_CENTER);
+
+        resultsHeader.setFont(new Font("Segoe UI Black", 24));
+        resultsHeader.setTextFill(Color.BLACK);
+
+        resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+        resultsLabel.setFont(new Font("Segoe UI Black", 28));
+        resultsLabel.setTextFill(Color.BLACK);
+
+        resultsBox.getChildren().addAll(resultsHeader, resultsLabel);
+        resultsBox.setAlignment(Pos.TOP_CENTER);
+
+        saveGame.setOnAction((e) -> {
+            savedChipsLocations.clear();
+            for (int i = 0; i < whiteChips.size(); i++) {
+                savedChipsLocations.add(whiteChips.get(i).getLocation());
+                savedChipsLocations.add(blackChips.get(i).getLocation());
+            }
+            savedGamesMap.put(playerName, savedChipsLocations);
+            try {
+                ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savedGames));
+                oos.writeObject(savedGamesMap);
+                oos.close();
+            } catch (Exception exc) {
+                System.out.println(exc);
+            }
+            loadGame.setDisable(false);
+
+        });
+
+        loadGame.setOnAction((e) -> {
+            loadSavedGamesMap();
+            savedChipsLocations = savedGamesMap.get(playerName);
+            int j = 0;
+            for (int i = 0; i < whiteChips.size(); i++) {
+                relocateChip(whiteChips.get(i), savedChipsLocations.get(j));
+                relocateChip(blackChips.get(i), savedChipsLocations.get(j + 1));
+                j = j + 2;
+            }
+        });
+
+        restartGame.setOnAction((e) -> {
+            logs.clear();
+            resetChipsLocations();
+            playerNameBox.setValue(playerName);
+            if(computerAILevel == 1){
+                aILevels.setValue("nierozgarnięty");
+            }else if(computerAILevel == 3){
+                aILevels.setValue("całkiem bystry");
+            }else{
+                aILevels.setValue("rozsądny");
+            }
+            primaryStage.setScene(startScene);
+        });
+
+        clearPlayerResults.setOnAction(event ->{
+            boolean answer = ConfirmBox.display("Potwierdź",
+                    "Czy jesteś pewien, że chcesz wyzerować " +
+                            "swoje dotychczasowe wyniki?");
+            if(answer){
+                playerWins = 0;
+                computerWins = 0;
+                resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+                savePlayersRanks();
+            }
+        });
+
+        exitGame.setOnAction(event ->{
+            boolean answer = ConfirmBox.display("Potwierdź",
+                    "Czy jesteś pewien, że chcesz zakończyć" +
+                            " grę bez jej zapisania?");
+            if(answer){
+                primaryStage.close();
+            }
+        });
+
+        loadSavedGamesMap();
 
 
-        gameGrid.add(boardView, 15, 15, 80, 31);
-        gameGrid.add(dicesPane, 64, 55, 40, 30);
-        gameGrid.add(rollButton, 72, 49, 10, 5);
-        gameGrid.add(instructionLabel, 28, 55, 60, 30);
-        gameGrid.add(logBox, 2, 62, 30, 30);
-        Scene gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
 
-        primaryStage.setScene(gameScene);
+        menu.getItems().addAll(saveGame, loadGame, clearPlayerResults, restartGame, exitGame);
+        menuBar.getMenus().addAll(menu);
+
+
+        gameGrid.add(menuBar, 0, 0, 15, 3);
+        gameGrid.add(boardView, 19, 17, 80, 31);
+        gameGrid.add(dicesPane, 75, 57, 40, 30);
+        gameGrid.add(rollButton, 83, 51, 20, 5);
+        gameGrid.add(instructionLabel, 32, 55, 80, 30);
+        gameGrid.add(logBox, 1, 60, 30, 30);
+        gameGrid.add(resultsBox, 64, 2, 60, 50);
+        gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
+    }
+
+    public void loadSavedGamesMap() {
+        savedChipsLocations.clear();
+        try {
+            ObjectInputStream ois = new ObjectInputStream(new FileInputStream(savedGames));
+            Object readObject = ois.readObject();
+            if (readObject instanceof HashMap) {
+                savedGamesMap = (HashMap) readObject;
+            }
+            ois.close();
+        } catch (Exception exce) {
+            System.out.println(exce);
+        }
     }
 
 
     public void setUpLocationLists() {
         for (int i = 0; i < 7; i++) {
-            whiteStackLocations.add(new Location(18 + i * 5, 5));
-            blackStackLocations.add(new Location(18 + i * 5, 46));
-            whiteOffLocations.add(new Location(68 - i, 15));
-            blackOffLocations.add(new Location(68 - i, 37));
+            whiteStackLocations.add(new Location(22 + i * 5, 7));
+            blackStackLocations.add(new Location(22 + i * 5, 48));
+            whiteOffLocations.add(new Location(72 - i, 17));
+            blackOffLocations.add(new Location(72 - i, 39));
         }
         for (int i = 0; i < 4; i++) {
-            whiteTrackLocations.add(new Location(47 - i * 10, 16));
-            blackTrackLocations.add(new Location(47 - i * 10, 36));
+            whiteTrackLocations.add(new Location(51 - i * 10, 18));
+            blackTrackLocations.add(new Location(51 - i * 10, 38));
         }
         for (int i = 0; i < 8; i++) {
-            tempLocation = new Location(17 + i * 10, 26);
+            tempLocation = new Location(21 + i * 10, 28);
             whiteTrackLocations.add(tempLocation);
             blackTrackLocations.add(tempLocation);
         }
         for (int i = 0; i < 2; i++) {
-            whiteTrackLocations.add(new Location(87 - i * 10, 16));
-            blackTrackLocations.add(new Location(87 - i * 10, 36));
+            whiteTrackLocations.add(new Location(91 - i * 10, 18));
+            blackTrackLocations.add(new Location(91 - i * 10, 38));
         }
 
     }
@@ -287,6 +466,7 @@ public class RoyalGameOfUr extends Application {
 
     public void nextTurn() {
         rollButton.setDisable(true);
+        saveGame.setDisable(true);
         skipComputerMove = false;
         skipPlayersMove = false;
         if (rollResult != 0) {
@@ -363,10 +543,14 @@ public class RoyalGameOfUr extends Application {
                 if (chipsOff.size() < blackChips.size()) {
                     instructionLabel.setText("Rzuć kośćmi");
                 } else {
+                    playerWins++;
+                    savePlayersRanks();
+                    resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
                     instructionLabel.setText("BRAWO! Wygrałeś! Rzuć kośćmi aby rozpocząć nową partię");
                     logs.clear();
                     resetChipsLocations();
-                    if (computerFirst){
+                    computerFirst = !computerFirst;
+                    if (computerFirst) {
                         computerMove();
                         instructionLabel.setText("BRAWO! Wygrałeś! Komputer wykonał pierwszy ruch w nowej partii" +
                                 " Rzuć kośćmi aby wykonać swój ruch");
@@ -377,6 +561,7 @@ public class RoyalGameOfUr extends Application {
                 if (!skipComputerMove) {
                     computerMove();
                 } else {
+                    saveGame.setDisable(false);
                     rollButton.setDisable(false);
                 }
             });
@@ -415,9 +600,20 @@ public class RoyalGameOfUr extends Application {
         }
     }
 
+    public void savePlayersRanks() {
+        int[] playerAndComputerWins = {playerWins, computerWins};
+        playersRanks.put(playerName, playerAndComputerWins);
+        try {
+            ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savedPlayerRanks));
+            oos.writeObject(playersRanks);
+            oos.close();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
     public void computerMove() {
         rollResult = rollTheDices();
-        System.out.println("Computer roll: " + rollResult);
         updateLogByComputerMove();
         if (rollResult != 0) {
             instructionLabel.setText("Komputer wykonuje ruch");
@@ -428,6 +624,7 @@ public class RoyalGameOfUr extends Application {
             makeComputerMove(rollResult);
         } else {
             rollButton.setDisable(false);
+            saveGame.setDisable(false);
         }
     }
 
@@ -459,6 +656,8 @@ public class RoyalGameOfUr extends Application {
         }
         if (possibleMoves.size() == 0) {
             skipComputerMove = true;
+            saveGame.setDisable(false);
+            instructionLabel.setText("Komputer nie był w stanie wykonać ruchu. Rzuć kośćmi");
             rollButton.setDisable(false);
         }
     }
@@ -479,39 +678,135 @@ public class RoyalGameOfUr extends Application {
     }
 
     public void chooseComputerMove() {
-        int chosenMoveNo = gen.nextInt(possibleMoves.size());
-        int c = 0;
-        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
-            if (c == chosenMoveNo) {
-                relocateChip(possibleMove.getKey(), possibleMove.getValue());
-                groupUpWChips();
-                skipPlayersMove = whiteTrackLocations.get(3).equals(possibleMove.getValue())
-                        || whiteTrackLocations.get(7).equals(possibleMove.getValue())
-                        || whiteTrackLocations.get(13).equals(possibleMove.getValue());
-                for (Chip chip : blackChips) {
-                    if (possibleMove.getValue().equals(chip.getLocation())) {
-                        removeBlackChip(chip);
-                    }
-                }
-                if (chipsOff.size() < whiteChips.size()) {
-                    instructionLabel.setText("Rzuć kośćmi");
-                } else {
-                    instructionLabel.setText("Niestety przegrałeś. Rzuć kośćmi aby rozpocząć nową partię");
-                    logs.clear();
-                    resetChipsLocations();
-                    if (computerFirst){
-                        computerMove();
-                        instructionLabel.setText("Niestety przegrałeś. Komputer wykonał pierwszy ruch w nowej partii" +
-                                " Rzuć kośćmi aby wykonać swój ruch");
-                    }
-                }
-            }
-            c++;
+        if (computerAILevel == 1) {
+            randomChoice();
+        } else if (computerAILevel == 2) {
+            mediumSmartChoice();
+        } else {
+            smartChoice();
         }
+
         if (skipPlayersMove) {
             computerMove();
         }
         rollButton.setDisable(false);
+        saveGame.setDisable(false);
+    }
+
+    public void smartChoice() {
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            for (Chip chip : blackChips) {
+                if (possibleMove.getValue().equals(chip.getLocation())) {
+                    executeChosenComputerMove(possibleMove);
+                    return;
+                }
+            }
+        }
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (whiteTrackLocations.get(3).equals(possibleMove.getValue())
+                    || whiteTrackLocations.get(7).equals(possibleMove.getValue())
+                    || whiteTrackLocations.get(13).equals(possibleMove.getValue())) {
+                executeChosenComputerMove(possibleMove);
+                return;
+
+            }
+        }
+        selectedPossibleMoves = (HashMap<Chip, Location>) possibleMoves.clone();
+        if (possibleMoves.size() > 1) {
+            for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+                if (whiteTrackLocations.get(7).equals(possibleMove.getKey().getLocation())) {
+                    selectedPossibleMoves.remove(possibleMove.getKey());
+                }
+            }
+        }
+        possibleMoves = selectedPossibleMoves;
+
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (whiteTrackLocations.subList(4, 12).contains(possibleMove.getKey().getLocation())) {
+                for(Chip blackChip: blackChips){
+                    if(whiteTrackLocations.indexOf(possibleMove.getKey().getLocation()) ==
+                            blackTrackLocations.indexOf(blackChip.getLocation()) + 2){
+                        executeChosenComputerMove(possibleMove);
+                        return;
+                    }
+                }
+            }
+        }
+        selectedPossibleMoves = (HashMap<Chip, Location>) possibleMoves.clone();
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (whiteTrackLocations.subList(4, 12).contains(possibleMove.getValue())) {
+                for(Chip blackChip: blackChips){
+                    if(whiteTrackLocations.indexOf(possibleMove.getValue()) ==
+                            blackTrackLocations.indexOf(blackChip.getLocation()) + 2 &&
+                            selectedPossibleMoves.size() > 1){
+                        selectedPossibleMoves.remove(possibleMove.getKey());
+                    }
+                }
+            }
+        }
+        possibleMoves = selectedPossibleMoves;
+        randomChoice();
+    }
+
+    public void mediumSmartChoice() {
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            for (Chip chip : blackChips) {
+                if (possibleMove.getValue().equals(chip.getLocation())) {
+                    executeChosenComputerMove(possibleMove);
+                    return;
+                }
+            }
+        }
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (whiteTrackLocations.get(3).equals(possibleMove.getValue())
+                    || whiteTrackLocations.get(7).equals(possibleMove.getValue())
+                    || whiteTrackLocations.get(13).equals(possibleMove.getValue())) {
+                executeChosenComputerMove(possibleMove);
+                return;
+
+            }
+        }
+        randomChoice();
+    }
+
+    public void randomChoice() {
+        int chosenMoveNo = gen.nextInt(possibleMoves.size());
+        int c = 0;
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (c == chosenMoveNo) {
+                executeChosenComputerMove(possibleMove);
+            }
+            c++;
+        }
+    }
+
+    public void executeChosenComputerMove(Map.Entry<Chip, Location> possibleMove) {
+        relocateChip(possibleMove.getKey(), possibleMove.getValue());
+        groupUpWChips();
+        skipPlayersMove = whiteTrackLocations.get(3).equals(possibleMove.getValue())
+                || whiteTrackLocations.get(7).equals(possibleMove.getValue())
+                || whiteTrackLocations.get(13).equals(possibleMove.getValue());
+        for (Chip chip : blackChips) {
+            if (possibleMove.getValue().equals(chip.getLocation())) {
+                removeBlackChip(chip);
+            }
+        }
+        if (chipsOff.size() < whiteChips.size()) {
+            instructionLabel.setText("Rzuć kośćmi");
+        } else {
+            computerWins++;
+            savePlayersRanks();
+            resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+            instructionLabel.setText("Niestety przegrałeś. Rzuć kośćmi aby rozpocząć nową partię");
+            logs.clear();
+            resetChipsLocations();
+            computerFirst = !computerFirst;
+            if (computerFirst) {
+                computerMove();
+                instructionLabel.setText("Niestety przegrałeś. Komputer wykonał pierwszy ruch w nowej partii" +
+                        " Rzuć kośćmi aby wykonać swój ruch");
+            }
+        }
     }
 
     public boolean isWLocationAvailable(Location location) {

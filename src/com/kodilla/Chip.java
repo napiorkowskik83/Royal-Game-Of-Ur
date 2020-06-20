@@ -1,9 +1,9 @@
 package com.kodilla;
 
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import java.io.Serializable;
 
-public class Chip {
+public class Chip implements Serializable {
     ImageView look;
     Location location;
 

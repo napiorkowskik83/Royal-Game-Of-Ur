@@ -1,6 +1,8 @@
 package com.kodilla;
 
-public class Location {
+import java.io.Serializable;
+
+public class Location implements Serializable {
     int x;
     int y;
 
