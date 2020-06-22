@@ -14,7 +14,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
-import java.io.*;
 import java.util.*;
 
 public class RoyalGameOfUr extends Application {
@@ -84,14 +83,13 @@ public class RoyalGameOfUr extends Application {
     private final Menu menu = new Menu("Menu");
     private final MenuItem loadGame = new MenuItem("Wczytaj ostatnią grę");
     private final MenuItem saveGame = new MenuItem("Zapisz grę");
-    private final MenuItem restartGame = new MenuItem("Zrestartuj grę");
+    private final MenuItem showPlayersRank = new MenuItem("Pokaż ranking graczy");
     private final MenuItem clearPlayerResults = new MenuItem("Wyczyść swoje wyniki");
+    private final MenuItem restartGame = new MenuItem("Zrestartuj grę");
     private final MenuItem exitGame = new MenuItem("Zakończ grę");
     private HashMap<String, int[]> playersRanks = new HashMap<>();
     private HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<String, ArrayList<Location>>();
     private ArrayList<Location> savedChipsLocations = new ArrayList<Location>();
-    private File savedPlayerRanks = new File("rank.list");
-    private File savedGames = new File("saved.games");
 
 
     public static void main(String[] args) {
@@ -101,7 +99,7 @@ public class RoyalGameOfUr extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
 
-        loadPlayersRanks();
+        playersRanks = RanksHandler.loadRanks();
         setUpGameScene(primaryStage, gameBackground);
         setUpStartScene(primaryStage, gameBackground);
 
@@ -111,26 +109,12 @@ public class RoyalGameOfUr extends Application {
     }
 
 
-    public void loadPlayersRanks() {
-        try {
-            ObjectInputStream ois = new ObjectInputStream(new FileInputStream(savedPlayerRanks));
-            Object readObject = ois.readObject();
-            if (readObject instanceof HashMap) {
-                playersRanks = (HashMap) readObject;
-            }
-            ois.close();
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-
     public void setUpStartScene(Stage primaryStage, Background gameBackground) {
         startBox.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
         startBox.setBackground(Background.EMPTY);
         startBox.setSpacing(18);
 
         Label text1 = new Label("Witamy w Królewskiej Grze z Ur!");
-        //text1.setWrapText(true);
         text1.setFont(Font.font("Cambria", FontWeight.NORMAL, 22));
         text1.setTextFill(Color.BLACK);
 
@@ -199,6 +183,8 @@ public class RoyalGameOfUr extends Application {
 
     public void updateSettingsAccordingToPlayerInput() {
         playerName = playerNameBox.getValue();
+        playersRanks = RanksHandler.loadRanks();
+        savedGamesMap = SavesHandler.loadSavedGames();
         updatePlayerAndComputerWins();
         setUpComputerAILevel();
         resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
@@ -212,6 +198,9 @@ public class RoyalGameOfUr extends Application {
         if (playersRanks.containsKey(playerName)) {
             playerWins = playersRanks.get(playerName)[0];
             computerWins = playersRanks.get(playerName)[1];
+        } else {
+            playerWins = 0;
+            computerWins = 0;
         }
     }
 
@@ -231,7 +220,6 @@ public class RoyalGameOfUr extends Application {
         gameGrid.setAlignment(Pos.TOP_LEFT);
         gameGrid.setHgap(10);
         gameGrid.setVgap(10);
-        //gameGrid.setGridLinesVisible(true);
         gameGrid.setBackground(background);
         ImageView boardView = new ImageView(gameBoard);
 
@@ -243,7 +231,6 @@ public class RoyalGameOfUr extends Application {
         rollButton.setOnAction((e) -> {
             rollResult = rollTheDices();
             updateLogByPlayerMove();
-            System.out.println("Player roll: " + rollResult);
             nextTurn();
         });
 
@@ -274,25 +261,14 @@ public class RoyalGameOfUr extends Application {
         resultsBox.setAlignment(Pos.TOP_CENTER);
 
         saveGame.setOnAction((e) -> {
-            savedChipsLocations.clear();
-            for (int i = 0; i < whiteChips.size(); i++) {
-                savedChipsLocations.add(whiteChips.get(i).getLocation());
-                savedChipsLocations.add(blackChips.get(i).getLocation());
-            }
-            savedGamesMap.put(playerName, savedChipsLocations);
-            try {
-                ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savedGames));
-                oos.writeObject(savedGamesMap);
-                oos.close();
-            } catch (Exception exc) {
-                System.out.println(exc);
-            }
+            SavesHandler.saveGame(playerName, whiteChips, blackChips);
             loadGame.setDisable(false);
+            RanksHandler.saveRank(playerName, playerWins, computerWins);
 
         });
 
         loadGame.setOnAction((e) -> {
-            loadSavedGamesMap();
+            savedGamesMap = SavesHandler.loadSavedGames();
             savedChipsLocations = savedGamesMap.get(playerName);
             int j = 0;
             for (int i = 0; i < whiteChips.size(); i++) {
@@ -302,46 +278,48 @@ public class RoyalGameOfUr extends Application {
             }
         });
 
+        showPlayersRank.setOnAction(event -> {
+            RankWindow.display();
+        });
+
+        clearPlayerResults.setOnAction(event -> {
+            boolean answer = ConfirmBox.display("Potwierdź",
+                    "Czy jesteś pewien, że chcesz wyzerować " +
+                            "swoje dotychczasowe wyniki?");
+            if (answer) {
+                playerWins = 0;
+                computerWins = 0;
+                resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+                RanksHandler.saveRank(playerName, playerWins, computerWins);
+            }
+        });
+
         restartGame.setOnAction((e) -> {
             logs.clear();
             resetChipsLocations();
             playerNameBox.setValue(playerName);
-            if(computerAILevel == 1){
+            if (computerAILevel == 1) {
                 aILevels.setValue("nierozgarnięty");
-            }else if(computerAILevel == 3){
+            } else if (computerAILevel == 3) {
                 aILevels.setValue("całkiem bystry");
-            }else{
+            } else {
                 aILevels.setValue("rozsądny");
             }
             primaryStage.setScene(startScene);
         });
 
-        clearPlayerResults.setOnAction(event ->{
-            boolean answer = ConfirmBox.display("Potwierdź",
-                    "Czy jesteś pewien, że chcesz wyzerować " +
-                            "swoje dotychczasowe wyniki?");
-            if(answer){
-                playerWins = 0;
-                computerWins = 0;
-                resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
-                savePlayersRanks();
-            }
-        });
-
-        exitGame.setOnAction(event ->{
+        exitGame.setOnAction(event -> {
             boolean answer = ConfirmBox.display("Potwierdź",
                     "Czy jesteś pewien, że chcesz zakończyć" +
                             " grę bez jej zapisania?");
-            if(answer){
+            if (answer) {
                 primaryStage.close();
             }
         });
 
-        loadSavedGamesMap();
+        savedGamesMap = SavesHandler.loadSavedGames();
 
-
-
-        menu.getItems().addAll(saveGame, loadGame, clearPlayerResults, restartGame, exitGame);
+        menu.getItems().addAll(saveGame, loadGame, showPlayersRank, clearPlayerResults, restartGame, exitGame);
         menuBar.getMenus().addAll(menu);
 
 
@@ -354,21 +332,6 @@ public class RoyalGameOfUr extends Application {
         gameGrid.add(resultsBox, 64, 2, 60, 50);
         gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
     }
-
-    public void loadSavedGamesMap() {
-        savedChipsLocations.clear();
-        try {
-            ObjectInputStream ois = new ObjectInputStream(new FileInputStream(savedGames));
-            Object readObject = ois.readObject();
-            if (readObject instanceof HashMap) {
-                savedGamesMap = (HashMap) readObject;
-            }
-            ois.close();
-        } catch (Exception exce) {
-            System.out.println(exce);
-        }
-    }
-
 
     public void setUpLocationLists() {
         for (int i = 0; i < 7; i++) {
@@ -544,7 +507,7 @@ public class RoyalGameOfUr extends Application {
                     instructionLabel.setText("Rzuć kośćmi");
                 } else {
                     playerWins++;
-                    savePlayersRanks();
+                    RanksHandler.saveRank(playerName, playerWins, computerWins);
                     resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
                     instructionLabel.setText("BRAWO! Wygrałeś! Rzuć kośćmi aby rozpocząć nową partię");
                     logs.clear();
@@ -600,27 +563,11 @@ public class RoyalGameOfUr extends Application {
         }
     }
 
-    public void savePlayersRanks() {
-        int[] playerAndComputerWins = {playerWins, computerWins};
-        playersRanks.put(playerName, playerAndComputerWins);
-        try {
-            ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savedPlayerRanks));
-            oos.writeObject(playersRanks);
-            oos.close();
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-
     public void computerMove() {
         rollResult = rollTheDices();
         updateLogByComputerMove();
         if (rollResult != 0) {
             instructionLabel.setText("Komputer wykonuje ruch");
-//            try{
-//                Thread.sleep(3000);
-//            }catch(Exception ex){
-//            }
             makeComputerMove(rollResult);
         } else {
             rollButton.setDisable(false);
@@ -723,9 +670,9 @@ public class RoyalGameOfUr extends Application {
 
         for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
             if (whiteTrackLocations.subList(4, 12).contains(possibleMove.getKey().getLocation())) {
-                for(Chip blackChip: blackChips){
-                    if(whiteTrackLocations.indexOf(possibleMove.getKey().getLocation()) ==
-                            blackTrackLocations.indexOf(blackChip.getLocation()) + 2){
+                for (Chip blackChip : blackChips) {
+                    if (whiteTrackLocations.indexOf(possibleMove.getKey().getLocation()) ==
+                            blackTrackLocations.indexOf(blackChip.getLocation()) + 2) {
                         executeChosenComputerMove(possibleMove);
                         return;
                     }
@@ -735,10 +682,10 @@ public class RoyalGameOfUr extends Application {
         selectedPossibleMoves = (HashMap<Chip, Location>) possibleMoves.clone();
         for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
             if (whiteTrackLocations.subList(4, 12).contains(possibleMove.getValue())) {
-                for(Chip blackChip: blackChips){
-                    if(whiteTrackLocations.indexOf(possibleMove.getValue()) ==
+                for (Chip blackChip : blackChips) {
+                    if (whiteTrackLocations.indexOf(possibleMove.getValue()) ==
                             blackTrackLocations.indexOf(blackChip.getLocation()) + 2 &&
-                            selectedPossibleMoves.size() > 1){
+                            selectedPossibleMoves.size() > 1) {
                         selectedPossibleMoves.remove(possibleMove.getKey());
                     }
                 }
@@ -795,7 +742,7 @@ public class RoyalGameOfUr extends Application {
             instructionLabel.setText("Rzuć kośćmi");
         } else {
             computerWins++;
-            savePlayersRanks();
+            RanksHandler.saveRank(playerName, playerWins, computerWins);
             resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
             instructionLabel.setText("Niestety przegrałeś. Rzuć kośćmi aby rozpocząć nową partię");
             logs.clear();
