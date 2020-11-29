@@ -18,13 +18,13 @@ import java.util.*;
 
 public class RoyalGameOfUr extends Application {
 
-    Random gen = new Random();
+    private final Random gen = new Random();
     private final Image imageBack = new Image("resources/leather.jpg");
     private final Image gameBoard = new Image("resources/the-royal-game-of-ur-board-3d-effect.png");
     private final Image greenX = new Image("resources/greenX.png");
-    private final List<ImageView> greenXViews = new ArrayList();
-    private final ArrayList<Button> greenXButtons = new ArrayList();
-    private final ArrayList<String> logs = new ArrayList();
+    private final List<ImageView> greenXViews = new ArrayList<>();
+    private final ArrayList<Button> greenXButtons = new ArrayList<>();
+    private final ArrayList<String> logs = new ArrayList<>();
     private final Image dice00 = new Image("resources/dice00.png");
     private final Image dice01 = new Image("resources/dice01.png");
     private final Image dice02 = new Image("resources/dice02.png");
@@ -35,16 +35,17 @@ public class RoyalGameOfUr extends Application {
     private final Image blackChip = new Image("resources/bChipSmall.png");
     private final Image whiteChip = new Image("resources/wChipSmall.png");
     private final Image directions = new Image("resources/directions.png");
-    private final BackgroundSize backgroundSize = new BackgroundSize(100, 100, true, true, true, false);
-    private final BackgroundImage backgroundImage = new BackgroundImage(imageBack, BackgroundRepeat.REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
+    private final BackgroundSize backgroundSize = new BackgroundSize(100, 100,
+            true, true, true, false);
+    private final BackgroundImage backgroundImage = new BackgroundImage(imageBack, BackgroundRepeat.REPEAT,
+            BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
     private final Background gameBackground = new Background(backgroundImage);
     private final VBox startBox = new VBox();
     private Scene startScene;
     private Scene gameScene;
-    private Location tempLocation;
-    private final ArrayList<ImageView> whiteChipViews = new ArrayList();
-    private final ArrayList<ImageView> blackChipViews = new ArrayList();
-    Button rollButton = new Button("Rzut kośćmi");
+    private final ArrayList<ImageView> whiteChipViews = new ArrayList<>();
+    private final ArrayList<ImageView> blackChipViews = new ArrayList<>();
+    private final Button rollButton = new Button("Rzut kośćmi");
     private int rollResult;
     private final Label instructionLabel = new Label("Rzuć kośćmi aby rozpocząć swoją turę.");
     private final Label logHeader = new Label();
@@ -53,27 +54,25 @@ public class RoyalGameOfUr extends Application {
     private final Label resultsHeader = new Label("Dotychczasowe zwycięstwa");
     private final Label resultsLabel = new Label();
     private final VBox resultsBox = new VBox();
-    String logText;
-    private final ArrayList<Location> whiteStackLocations = new ArrayList();
-    private final ArrayList<Location> blackStackLocations = new ArrayList();
-    private final ArrayList<Location> whiteTrackLocations = new ArrayList();
-    private final ArrayList<Location> blackTrackLocations = new ArrayList();
-    private final ArrayList<Location> whiteOffLocations = new ArrayList();
-    private final ArrayList<Location> blackOffLocations = new ArrayList();
-    private final ArrayList<Chip> whiteChips = new ArrayList();
-    private final ArrayList<Chip> blackChips = new ArrayList();
-    private final ArrayList<Chip> chipsOnStack = new ArrayList();
-    private final ArrayList<Chip> chipsOnTrack = new ArrayList();
-    private final ArrayList<Chip> chipsOff = new ArrayList();
-    private HashMap<Chip, Location> possibleMoves = new HashMap();
-    private HashMap<Chip, Location> selectedPossibleMoves = new HashMap();
+    private final ArrayList<Location> whiteStackLocations = new ArrayList<>();
+    private final ArrayList<Location> blackStackLocations = new ArrayList<>();
+    private final ArrayList<Location> whiteTrackLocations = new ArrayList<>();
+    private final ArrayList<Location> blackTrackLocations = new ArrayList<>();
+    private final ArrayList<Location> whiteOffLocations = new ArrayList<>();
+    private final ArrayList<Location> blackOffLocations = new ArrayList<>();
+    private final ArrayList<Chip> whiteChips = new ArrayList<>();
+    private final ArrayList<Chip> blackChips = new ArrayList<>();
+    private final ArrayList<Chip> chipsOnStack = new ArrayList<>();
+    private final ArrayList<Chip> chipsOnTrack = new ArrayList<>();
+    private final ArrayList<Chip> chipsOff = new ArrayList<>();
+    private HashMap<Chip, Location> possibleMoves = new HashMap<>();
     private boolean skipComputerMove;
     private boolean skipPlayersMove;
     private boolean computerFirst;
     private Location checkedLocation;
     private int computerAILevel = 1;
-    private ComboBox<String> aILevels = new ComboBox<>();
-    private ComboBox<String> playerNameBox = new ComboBox<>();
+    private final ComboBox<String> aILevels = new ComboBox<>();
+    private final ComboBox<String> playerNameBox = new ComboBox<>();
     private String playerName = "nazwa gracza";
     private Integer playerWins = 0;
     private Integer computerWins = 0;
@@ -88,8 +87,9 @@ public class RoyalGameOfUr extends Application {
     private final MenuItem restartGame = new MenuItem("Zrestartuj grę");
     private final MenuItem exitGame = new MenuItem("Zakończ grę");
     private HashMap<String, int[]> playersRanks = new HashMap<>();
-    private HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<String, ArrayList<Location>>();
-    private ArrayList<Location> savedChipsLocations = new ArrayList<Location>();
+    private HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<>();
+    private ArrayList<Location> savedChipsLocations = new ArrayList<>();
+    private final LogHandler logHandler = new LogHandler();
 
 
     public static void main(String[] args) {
@@ -97,19 +97,134 @@ public class RoyalGameOfUr extends Application {
     }
 
     @Override
-    public void start(Stage primaryStage) throws Exception {
+    public void start(Stage primaryStage) {
 
         playersRanks = RanksHandler.loadRanks();
         setUpGameScene(primaryStage, gameBackground);
-        setUpStartScene(primaryStage, gameBackground);
+        setUpStartScene(primaryStage);
 
         primaryStage.setTitle("Royal Game Of Ur");
         primaryStage.setScene(startScene);
         primaryStage.show();
     }
 
+    public void setUpGameScene(Stage primaryStage, Background background) {
+        gameGrid.setAlignment(Pos.TOP_LEFT);
+        gameGrid.setHgap(10);
+        gameGrid.setVgap(10);
+        gameGrid.setBackground(background);
+        ImageView boardView = new ImageView(gameBoard);
 
-    public void setUpStartScene(Stage primaryStage, Background gameBackground) {
+        createGreenXButtonList();
+        rollTheDices();
+        createChipsWithStartLocations();
+        locateChips();
+
+        rollButton.setOnAction((e) -> {
+            rollResult = rollTheDices();
+            logHandler.updateLogByPlayerMove(logs, rollResult, log);
+            nextTurn();
+        });
+
+        logHeader.setFont(new Font("Segoe UI Black", 18));
+        logHeader.setTextFill(Color.BEIGE);
+        logHeader.setText("Ostatnie 5 rzutów:");
+
+        log.setFont(new Font("Segoe UI Black", 16));
+        log.setTextFill(Color.BEIGE);
+
+        logBox.getChildren().addAll(logHeader, log);
+        logBox.setSpacing(5);
+
+        instructionLabel.setFont(new Font("Cambria", 36));
+        instructionLabel.setTextFill(Color.BEIGE);
+        instructionLabel.setPrefWidth(600);
+        instructionLabel.setWrapText(true);
+        instructionLabel.setAlignment(Pos.BOTTOM_CENTER);
+
+        resultsHeader.setFont(new Font("Segoe UI Black", 24));
+        resultsHeader.setTextFill(Color.BLACK);
+
+        resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+        resultsLabel.setFont(new Font("Segoe UI Black", 28));
+        resultsLabel.setTextFill(Color.BLACK);
+
+        resultsBox.getChildren().addAll(resultsHeader, resultsLabel);
+        resultsBox.setAlignment(Pos.TOP_CENTER);
+
+        saveGame.setOnAction((e) -> {
+            SavesHandler.saveGame(playerName, whiteChips, blackChips);
+            loadGame.setDisable(false);
+            RanksHandler.saveRank(playerName, playerWins, computerWins);
+
+        });
+
+        loadGame.setOnAction((e) -> {
+            savedGamesMap = SavesHandler.loadSavedGames();
+            savedChipsLocations = savedGamesMap.get(playerName);
+            int j = 0;
+            for (int i = 0; i < whiteChips.size(); i++) {
+                relocateChip(whiteChips.get(i), savedChipsLocations.get(j));
+                relocateChip(blackChips.get(i), savedChipsLocations.get(j + 1));
+                j = j + 2;
+            }
+        });
+
+        showPlayersRank.setOnAction(event -> RankWindow.display());
+
+        clearPlayerResults.setOnAction(event -> {
+            boolean answer = ConfirmBox.display("Potwierdź",
+                    "Czy jesteś pewien, że chcesz wyzerować " +
+                            "swoje dotychczasowe wyniki?");
+            if (answer) {
+                playerWins = 0;
+                computerWins = 0;
+                resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
+                RanksHandler.saveRank(playerName, playerWins, computerWins);
+            }
+        });
+
+        restartGame.setOnAction((e) -> {
+            logs.clear();
+            resetChipsLocations();
+            playerNameBox.setValue(playerName);
+            if (computerAILevel == 1) {
+                aILevels.setValue("nierozgarnięty");
+            } else if (computerAILevel == 3) {
+                aILevels.setValue("całkiem bystry");
+            } else {
+                aILevels.setValue("rozsądny");
+            }
+            primaryStage.setScene(startScene);
+        });
+
+        exitGame.setOnAction(event -> {
+            boolean answer = ConfirmBox.display("Potwierdź",
+                    "Czy jesteś pewien, że chcesz zakończyć" +
+                            " grę bez jej zapisania?");
+            if (answer) {
+                primaryStage.close();
+            }
+        });
+
+        savedGamesMap = SavesHandler.loadSavedGames();
+
+        menu.getItems().addAll(saveGame, loadGame, showPlayersRank, clearPlayerResults, restartGame, exitGame);
+        menuBar.getMenus().addAll(menu);
+
+
+        gameGrid.add(menuBar, 0, 0, 15, 3);
+        gameGrid.add(boardView, 19, 17, 80, 31);
+        gameGrid.add(dicesPane, 75, 57, 40, 30);
+        gameGrid.add(rollButton, 83, 51, 20, 5);
+        gameGrid.add(instructionLabel, 32, 55, 80, 30);
+        gameGrid.add(logBox, 1, 60, 30, 30);
+        gameGrid.add(resultsBox, 64, 2, 60, 50);
+        gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
+    }
+
+
+    public void setUpStartScene(Stage primaryStage) {
         startBox.setPadding(new Insets(11.5, 12.5, 13.5, 14.5));
         startBox.setBackground(Background.EMPTY);
         startBox.setSpacing(18);
@@ -216,123 +331,6 @@ public class RoyalGameOfUr extends Application {
         }
     }
 
-    public void setUpGameScene(Stage primaryStage, Background background) {
-        gameGrid.setAlignment(Pos.TOP_LEFT);
-        gameGrid.setHgap(10);
-        gameGrid.setVgap(10);
-        gameGrid.setBackground(background);
-        ImageView boardView = new ImageView(gameBoard);
-
-        createGreenXButtonList();
-        rollTheDices();
-        createChipsWithStartLocations();
-        locateChips();
-
-        rollButton.setOnAction((e) -> {
-            rollResult = rollTheDices();
-            updateLogByPlayerMove();
-            nextTurn();
-        });
-
-        logHeader.setFont(new Font("Segoe UI Black", 18));
-        logHeader.setTextFill(Color.BEIGE);
-        logHeader.setText("Ostatnie 5 rzutów:");
-
-        log.setFont(new Font("Segoe UI Black", 16));
-        log.setTextFill(Color.BEIGE);
-
-        logBox.getChildren().addAll(logHeader, log);
-        logBox.setSpacing(5);
-
-        instructionLabel.setFont(new Font("Cambria", 36));
-        instructionLabel.setTextFill(Color.BEIGE);
-        instructionLabel.setPrefWidth(600);
-        instructionLabel.setWrapText(true);
-        instructionLabel.setAlignment(Pos.BOTTOM_CENTER);
-
-        resultsHeader.setFont(new Font("Segoe UI Black", 24));
-        resultsHeader.setTextFill(Color.BLACK);
-
-        resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
-        resultsLabel.setFont(new Font("Segoe UI Black", 28));
-        resultsLabel.setTextFill(Color.BLACK);
-
-        resultsBox.getChildren().addAll(resultsHeader, resultsLabel);
-        resultsBox.setAlignment(Pos.TOP_CENTER);
-
-        saveGame.setOnAction((e) -> {
-            SavesHandler.saveGame(playerName, whiteChips, blackChips);
-            loadGame.setDisable(false);
-            RanksHandler.saveRank(playerName, playerWins, computerWins);
-
-        });
-
-        loadGame.setOnAction((e) -> {
-            savedGamesMap = SavesHandler.loadSavedGames();
-            savedChipsLocations = savedGamesMap.get(playerName);
-            int j = 0;
-            for (int i = 0; i < whiteChips.size(); i++) {
-                relocateChip(whiteChips.get(i), savedChipsLocations.get(j));
-                relocateChip(blackChips.get(i), savedChipsLocations.get(j + 1));
-                j = j + 2;
-            }
-        });
-
-        showPlayersRank.setOnAction(event -> {
-            RankWindow.display();
-        });
-
-        clearPlayerResults.setOnAction(event -> {
-            boolean answer = ConfirmBox.display("Potwierdź",
-                    "Czy jesteś pewien, że chcesz wyzerować " +
-                            "swoje dotychczasowe wyniki?");
-            if (answer) {
-                playerWins = 0;
-                computerWins = 0;
-                resultsLabel.setText(playerName + " " + playerWins + " : " + computerWins + " " + "komputer");
-                RanksHandler.saveRank(playerName, playerWins, computerWins);
-            }
-        });
-
-        restartGame.setOnAction((e) -> {
-            logs.clear();
-            resetChipsLocations();
-            playerNameBox.setValue(playerName);
-            if (computerAILevel == 1) {
-                aILevels.setValue("nierozgarnięty");
-            } else if (computerAILevel == 3) {
-                aILevels.setValue("całkiem bystry");
-            } else {
-                aILevels.setValue("rozsądny");
-            }
-            primaryStage.setScene(startScene);
-        });
-
-        exitGame.setOnAction(event -> {
-            boolean answer = ConfirmBox.display("Potwierdź",
-                    "Czy jesteś pewien, że chcesz zakończyć" +
-                            " grę bez jej zapisania?");
-            if (answer) {
-                primaryStage.close();
-            }
-        });
-
-        savedGamesMap = SavesHandler.loadSavedGames();
-
-        menu.getItems().addAll(saveGame, loadGame, showPlayersRank, clearPlayerResults, restartGame, exitGame);
-        menuBar.getMenus().addAll(menu);
-
-
-        gameGrid.add(menuBar, 0, 0, 15, 3);
-        gameGrid.add(boardView, 19, 17, 80, 31);
-        gameGrid.add(dicesPane, 75, 57, 40, 30);
-        gameGrid.add(rollButton, 83, 51, 20, 5);
-        gameGrid.add(instructionLabel, 32, 55, 80, 30);
-        gameGrid.add(logBox, 1, 60, 30, 30);
-        gameGrid.add(resultsBox, 64, 2, 60, 50);
-        gameScene = new Scene(gameGrid, 1163, 774, Color.BLACK);
-    }
-
     public void setUpLocationLists() {
         for (int i = 0; i < 7; i++) {
             whiteStackLocations.add(new Location(22 + i * 5, 7));
@@ -345,7 +343,7 @@ public class RoyalGameOfUr extends Application {
             blackTrackLocations.add(new Location(51 - i * 10, 38));
         }
         for (int i = 0; i < 8; i++) {
-            tempLocation = new Location(21 + i * 10, 28);
+            Location tempLocation = new Location(21 + i * 10, 28);
             whiteTrackLocations.add(tempLocation);
             blackTrackLocations.add(tempLocation);
         }
@@ -353,7 +351,6 @@ public class RoyalGameOfUr extends Application {
             whiteTrackLocations.add(new Location(91 - i * 10, 18));
             blackTrackLocations.add(new Location(91 - i * 10, 38));
         }
-
     }
 
     public void createChipViewLists() {
@@ -404,13 +401,13 @@ public class RoyalGameOfUr extends Application {
         dicesPane.getChildren().clear();
         int result = 0;
         int[] results = {gen.nextInt(2), gen.nextInt(2), gen.nextInt(2), gen.nextInt(2)};
-        for (int i = 0; i < results.length; i++) {
-            if (results[i] == 0) {
+        for (int j : results) {
+            if (j == 0) {
                 dicesPane.getChildren().add(new ImageView(dices[gen.nextInt(3)]));
             } else {
                 dicesPane.getChildren().add(new ImageView(dices[3 + gen.nextInt(3)]));
             }
-            result += results[i];
+            result += j;
 
         }
 
@@ -470,13 +467,19 @@ public class RoyalGameOfUr extends Application {
     }
 
     public void groupUpBChips() {
+        groupUpChips(blackChips, blackStackLocations, blackTrackLocations);
+    }
+
+    public void groupUpChips(ArrayList<Chip> groupedChips,
+                             ArrayList<Location> groupedChipsStackLocations,
+                             ArrayList<Location> groupedChipsTrackLocations) {
         chipsOnStack.clear();
         chipsOnTrack.clear();
         chipsOff.clear();
-        for (Chip chip : blackChips) {
-            if (blackStackLocations.contains(chip.getLocation())) {
+        for (Chip chip : groupedChips) {
+            if (groupedChipsStackLocations.contains(chip.getLocation())) {
                 chipsOnStack.add(chip);
-            } else if (blackTrackLocations.contains(chip.getLocation())) {
+            } else if (groupedChipsTrackLocations.contains(chip.getLocation())) {
                 chipsOnTrack.add(chip);
             } else {
                 chipsOff.add(chip);
@@ -539,13 +542,19 @@ public class RoyalGameOfUr extends Application {
     }
 
     public boolean isBLocationAvailable(Location location) {
-        for (Chip chip : blackChips) {
+        return isLocationAvailable(location, blackChips, blackTrackLocations, whiteChips);
+    }
+
+    public boolean isLocationAvailable(Location location, ArrayList<Chip> thisColorChips,
+                                       ArrayList<Location> thisColorChipsTrackLocations,
+                                       ArrayList<Chip> opponentChips) {
+        for (Chip chip : thisColorChips) {
             if (chip.getLocation().equals(location)) {
                 return false;
             }
         }
-        if (blackTrackLocations.get(7).equals(location)) {
-            for (Chip chip : whiteChips) {
+        if (thisColorChipsTrackLocations.get(7).equals(location)) {
+            for (Chip chip : opponentChips) {
                 if (chip.getLocation().equals(location)) {
                     return false;
                 }
@@ -565,7 +574,7 @@ public class RoyalGameOfUr extends Application {
 
     public void computerMove() {
         rollResult = rollTheDices();
-        updateLogByComputerMove();
+        logHandler.updateLogByComputerMove(logs, rollResult, log);
         if (rollResult != 0) {
             instructionLabel.setText("Komputer wykonuje ruch");
             makeComputerMove(rollResult);
@@ -610,18 +619,7 @@ public class RoyalGameOfUr extends Application {
     }
 
     public void groupUpWChips() {
-        chipsOnStack.clear();
-        chipsOnTrack.clear();
-        chipsOff.clear();
-        for (Chip chip : whiteChips) {
-            if (whiteStackLocations.contains(chip.getLocation())) {
-                chipsOnStack.add(chip);
-            } else if (whiteTrackLocations.contains(chip.getLocation())) {
-                chipsOnTrack.add(chip);
-            } else {
-                chipsOff.add(chip);
-            }
-        }
+        groupUpChips(whiteChips, whiteStackLocations, whiteTrackLocations);
     }
 
     public void chooseComputerMove() {
@@ -641,24 +639,8 @@ public class RoyalGameOfUr extends Application {
     }
 
     public void smartChoice() {
-        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
-            for (Chip chip : blackChips) {
-                if (possibleMove.getValue().equals(chip.getLocation())) {
-                    executeChosenComputerMove(possibleMove);
-                    return;
-                }
-            }
-        }
-        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
-            if (whiteTrackLocations.get(3).equals(possibleMove.getValue())
-                    || whiteTrackLocations.get(7).equals(possibleMove.getValue())
-                    || whiteTrackLocations.get(13).equals(possibleMove.getValue())) {
-                executeChosenComputerMove(possibleMove);
-                return;
-
-            }
-        }
-        selectedPossibleMoves = (HashMap<Chip, Location>) possibleMoves.clone();
+        if (chooseThrowingOutOrRosette()) return;
+        HashMap<Chip, Location> selectedPossibleMoves = (HashMap<Chip, Location>) possibleMoves.clone();
         if (possibleMoves.size() > 1) {
             for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
                 if (whiteTrackLocations.get(7).equals(possibleMove.getKey().getLocation())) {
@@ -692,15 +674,24 @@ public class RoyalGameOfUr extends Application {
             }
         }
         possibleMoves = selectedPossibleMoves;
+
+        for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
+            if (!whiteTrackLocations.subList(12, 14).contains(possibleMove.getKey().getLocation())
+                    &&(whiteTrackLocations.subList(12, 14).contains(possibleMove.getValue())
+                    || whiteOffLocations.contains(possibleMove.getValue()))) {
+                executeChosenComputerMove(possibleMove);
+                return;
+            }
+        }
         randomChoice();
     }
 
-    public void mediumSmartChoice() {
+    public boolean chooseThrowingOutOrRosette() {
         for (Map.Entry<Chip, Location> possibleMove : possibleMoves.entrySet()) {
             for (Chip chip : blackChips) {
                 if (possibleMove.getValue().equals(chip.getLocation())) {
                     executeChosenComputerMove(possibleMove);
-                    return;
+                    return true;
                 }
             }
         }
@@ -709,10 +700,14 @@ public class RoyalGameOfUr extends Application {
                     || whiteTrackLocations.get(7).equals(possibleMove.getValue())
                     || whiteTrackLocations.get(13).equals(possibleMove.getValue())) {
                 executeChosenComputerMove(possibleMove);
-                return;
-
+                return true;
             }
         }
+        return false;
+    }
+
+    public void mediumSmartChoice() {
+        if (chooseThrowingOutOrRosette()) return;
         randomChoice();
     }
 
@@ -757,19 +752,7 @@ public class RoyalGameOfUr extends Application {
     }
 
     public boolean isWLocationAvailable(Location location) {
-        for (Chip chip : whiteChips) {
-            if (chip.getLocation().equals(location)) {
-                return false;
-            }
-        }
-        if (whiteTrackLocations.get(7).equals(location)) {
-            for (Chip chip : blackChips) {
-                if (chip.getLocation().equals(location)) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return isLocationAvailable(location, whiteChips, whiteTrackLocations, blackChips);
     }
 
     public void removeBlackChip(Chip chip) {
@@ -778,37 +761,6 @@ public class RoyalGameOfUr extends Application {
                 relocateChip(chip, location);
                 break;
             }
-
         }
-
     }
-
-    public void updateLogByPlayerMove() {
-        if (logs.size() > 4) {
-            logs.remove(0);
-            logs.add("Gracz wyrzucił " + rollResult + "\n");
-        } else {
-            logs.add("Gracz wyrzucił " + rollResult + "\n");
-        }
-        logText = "";
-        for (String text : logs) {
-            logText += text;
-        }
-        log.setText(logText);
-    }
-
-    public void updateLogByComputerMove() {
-        if (logs.size() > 4) {
-            logs.remove(0);
-            logs.add("Komputer wyrzucił " + rollResult + "\n");
-        } else {
-            logs.add("Komputer wyrzucił " + rollResult + "\n");
-        }
-        logText = "";
-        for (String text : logs) {
-            logText += text;
-        }
-        log.setText(logText);
-    }
-
 }

@@ -18,7 +18,7 @@ import java.util.Map;
 
 public class RankWindow {
 
-    private static File savedPlayerRanks = new File("rank.list");
+    private static final File savedPlayerRanks = new File("rank.list");
     private static HashMap<String, int[]> playersRanks = new HashMap<>();
 
     public static void display(){
@@ -56,14 +56,19 @@ public class RankWindow {
         winsColumn.setAlignment(Pos.CENTER);
         lossColumn.setAlignment(Pos.CENTER);
 
-        int highestRank = 0;
+        int highestRank = -99999;
+        int lowestRank = 99999;
         for(Map.Entry<String, int[]> entry: playersRanks.entrySet()){
             if ( highestRank < entry.getValue()[0] - entry.getValue()[1]){
                 highestRank = entry.getValue()[0] - entry.getValue()[1];
             }
+            if ( lowestRank > entry.getValue()[0] - entry.getValue()[1]){
+                lowestRank = entry.getValue()[0] - entry.getValue()[1];
+            }
+
         }
 
-        for (int i = highestRank; i >= 0  ; i--){
+        for (int i = highestRank; i >= lowestRank  ; i--){
             for(Map.Entry<String, int[]> entry: playersRanks.entrySet()){
                 if ( i == entry.getValue()[0] - entry.getValue()[1]){
                     nameColumn.getChildren().add(new Text(entry.getKey()));
@@ -90,7 +95,7 @@ public class RankWindow {
             }
             ois.close();
         } catch (Exception e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
         }
     }
 }

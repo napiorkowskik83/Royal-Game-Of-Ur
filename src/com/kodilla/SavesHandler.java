@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class SavesHandler {
-    private static HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<String, ArrayList<Location>>();
-    private static ArrayList<Location> savedChipsLocations = new ArrayList<Location>();
-    private static File savedGames = new File("saved.games");
+    private static HashMap<String, ArrayList<Location>> savedGamesMap = new HashMap<>();
+    private static final ArrayList<Location> savedChipsLocations = new ArrayList<>();
+    private static final File savedGames = new File("saved.games");
 
     public static void saveGame(String playerName, ArrayList<Chip> whiteChips, ArrayList<Chip> blackChips){
         savedChipsLocations.clear();
@@ -21,7 +21,7 @@ public class SavesHandler {
             oos.writeObject(savedGamesMap);
             oos.close();
         } catch (Exception exc) {
-            System.out.println(exc);
+            System.out.println(exc.getMessage());
         }
     }
 
@@ -34,7 +34,7 @@ public class SavesHandler {
             }
             ois.close();
         } catch (Exception exce) {
-            System.out.println(exce);
+            System.out.println(exce.getMessage());
         }
         return savedGamesMap;
     }

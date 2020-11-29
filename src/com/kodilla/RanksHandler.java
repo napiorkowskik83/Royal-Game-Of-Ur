@@ -4,7 +4,7 @@ import java.io.*;
 import java.util.HashMap;
 
 public class RanksHandler {
-    private static File savedPlayerRanks = new File("rank.list");
+    private static final File savedPlayerRanks = new File("rank.list");
     private static HashMap<String, int[]> playersRanks = new HashMap<>();
 
     public static HashMap<String, int[]> loadRanks(){
@@ -16,7 +16,7 @@ public class RanksHandler {
             }
             ois.close();
         } catch (Exception e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
         }
         return playersRanks;
     }
@@ -29,7 +29,7 @@ public class RanksHandler {
             oos.writeObject(playersRanks);
             oos.close();
         } catch (Exception e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
         }
 
     }

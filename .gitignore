@@ -3,6 +3,7 @@
 *.iws
 *.iml
 *.ipr
+**/META-INF/
 
 ### NetBeans ###
 /nbproject/private/
